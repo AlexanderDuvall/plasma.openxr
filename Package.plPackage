@@ -1,0 +1,57 @@
+// plasma.openxr — OpenXR virtual and mixed reality support.
+//
+// The AUTHORED manifest, kept in source next to the plugin. It declares identity, compatibility,
+// what to load and what to ship. Component hashes and sizes are NOT here: the packaging step
+// computes those and emits them into the published manifest that ships inside the .plpkg.
+//
+// Field reference and validation rules: Docs/PluginPackageManagerPlan.html §05.
+
+PackageInfo
+{
+	// ---- identity -------------------------------------------------------------
+	// Version starts at 1.0.0 rather than inheriting an engine version: this package
+	// versions on its own changes from now on, not on the engine's.
+	string %Id{"plasma.openxr"}
+	string %Version{"1.0.0"}
+	string %Publisher{"PlasmaTechnology"}
+	string %License{"MIT"}
+	string %Homepage{"https://plasmagameengine.com"}
+
+	// ---- compatibility --------------------------------------------------------
+	// Must equal plSdkVersion::GetAbiTag() of the engine these binaries were built
+	// against. The build configuration is part of it - a Development and a Shipping
+	// build do not share a binary interface.
+	string %MinEngineVersion{"0.7.0"}
+	string %MaxEngineVersion{"0.7.0"}
+	string %AbiTag{"win64-msvc19-0.7.0-dev"}
+
+	// ---- presentation ---------------------------------------------------------
+	// The artwork is the OpenXR mark, which already shipped in the engine under
+	// Data/Plugins/Editor/Plugins but was never referenced by the bundle. It is a
+	// Khronos trademark, used here to identify an OpenXR integration.
+	string %DisplayName{"OpenXR"}
+	string %Category{"XR"}
+	string %Description{"Virtual and mixed reality through OpenXR, rendering via Vulkan.
+
+The OpenXR loader ships with the package. A runtime for the headset - SteamVR, Oculus, Windows Mixed Reality or similar - has to be installed and set as the active OpenXR runtime."}
+	string %Icon{"Branding/OpenXRIcon.png"}
+	string %Banner{"Branding/OpenXRBanner.png"}
+
+	// ---- binaries -------------------------------------------------------------
+	// Runtime only: no editor plugin and no editor-engine-process plugin, so this
+	// package needs no Qt and installs nothing into the editor UI.
+	string %EditorPlugins{}
+	string %EditorEnginePlugins{}
+	string %RuntimePlugins{"plOpenXRPlugin"}
+	string %PackageDependencies{"openxr_loader.dll", "openxr-LICENSE.txt"}
+
+	// ---- dependencies ---------------------------------------------------------
+	// None. It binds to GameEngine and the Vulkan headers, both part of the engine
+	// rather than packages.
+
+	// ---- components -----------------------------------------------------------
+	Component { string %Name{"manifest"} string %Platform{"any"} }
+	Component { string %Name{"runtime-win64"} string %Platform{"win64"} }
+	Component { string %Name{"icon"} string %Platform{"any"} }
+	Component { string %Name{"banner"} string %Platform{"any"} }
+}

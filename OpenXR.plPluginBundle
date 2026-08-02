@@ -1,0 +1,23 @@
+// for a description of the options see:
+// https://plengine.net/pages/docs/editor/editor-plugins.html
+
+PluginInfo
+{
+	string %DisplayName{"Open XR"}
+	string %Category{"XR"}
+	string %MinEngineVersion{"0.7.0"}
+	string %MaxEngineVersion{"0.7.0"}
+	// Artwork already existed under Data/Plugins/Editor/Plugins but the bundle had no
+	// fields for it, so nothing ever displayed it. It ships with the package now.
+	string %Icon{"OpenXRIcon.png"}
+	string %Banner{"OpenXRBanner.png"}
+	string %Description{"Allows to create AR and VR applications using the OpenXR API."}
+	string %EditorPlugins{}
+	string %EditorEnginePlugins{}
+	string %RuntimePlugins{"plOpenXRPlugin"}
+	string %PackageDependencies{"openxr_loader.dll", "openxr-LICENSE.txt"}
+	string %RequiredPlugins{}
+	string %ExclusiveFeatures{}
+	string %EnabledInTemplates{}
+	string %PlasmaBuildTargetName{"OpenXRPlugin"}
+}
