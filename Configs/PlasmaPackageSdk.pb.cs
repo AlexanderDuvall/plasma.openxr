@@ -82,7 +82,7 @@ public static class PlasmaPackageSdk
 
         rules.PublicDefinitions.Add("BUILDSYSTEM_COMPILE_ENGINE_AS_DLL");
         rules.PublicDefinitions.Add("BUILDSYSTEM_SDKVERSION_MAJOR=0");
-        rules.PublicDefinitions.Add("BUILDSYSTEM_SDKVERSION_MINOR=7");
+        rules.PublicDefinitions.Add("BUILDSYSTEM_SDKVERSION_MINOR=8");
         rules.PublicDefinitions.Add("BUILDSYSTEM_SDKVERSION_PATCH=0");
         rules.PublicDefinitions.Add("UNICODE");
         rules.PublicDefinitions.Add("_UNICODE");
@@ -131,6 +131,18 @@ public static class PlasmaPackageSdk
         AddImportLibrary(rules, context, "plGuiFoundation");
         AddImportLibrary(rules, context, "EditorFramework");
         AddImportLibrary(rules, context, "EditorEngineProcessFramework");
+
+        // The engine gives every editor plugin these two as well. An editor plugin that imports a
+        // mesh - a collision mesh, say - reaches plModelImporter2 through them, and without them
+        // fails to link on symbols that look nothing like the plugin's own code.
+        AddImportLibrary(rules, context, "ModelImporter2");
+        AddImportLibrary(rules, context, "HairImporter");
+
+        // uic output for the engine's own dialogs. A plugin that embeds one - the asset browser,
+        // the curve editor - includes <EditorFramework/ui_Foo.h>, which is generated rather than
+        // checked in, so it only exists in an SDK that has actually been built.
+        rules.PublicIncludePaths.Add(Path.Combine(Root, "Intermediate", "PlasmaBuild", "Generated", "Code", "Editor"));
+        rules.PublicIncludePaths.Add(Path.Combine(Root, "Intermediate", "PlasmaBuild", "Generated", "Code", "Tools", "Libs"));
     }
 
     /// \brief Include root and import library for the plasma.assets built-in.
@@ -143,6 +155,11 @@ public static class PlasmaPackageSdk
     {
         rules.PublicIncludePaths.Add(Path.Combine(Root, "Code", "EditorPlugins", "Assets"));
         AddImportLibrary(rules, context, "plEditorPluginAssets");
+
+        // SharedPluginAssets is its own DLL, and carries the editor/engine messages an
+        // engine-process plugin exchanges with the editor - plEditorEngineRestartSimulationMsg and
+        // friends. Including its header without linking it fails at the RTTI accessors.
+        AddImportLibrary(rules, context, "plSharedPluginAssets");
     }
 
     /// \brief The module shape every package plugin shares: PCH, language level, export define.

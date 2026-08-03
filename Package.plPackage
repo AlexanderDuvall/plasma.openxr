@@ -12,7 +12,7 @@ PackageInfo
 	// Version starts at 1.0.0 rather than inheriting an engine version: this package
 	// versions on its own changes from now on, not on the engine's.
 	string %Id{"plasma.openxr"}
-	string %Version{"1.0.1"}
+	string %Version{"1.1.0"}
 	string %Publisher{"PlasmaTechnology"}
 	string %License{"MIT"}
 	string %Homepage{"https://plasmagameengine.com"}
@@ -21,9 +21,9 @@ PackageInfo
 	// Must equal plSdkVersion::GetAbiTag() of the engine these binaries were built
 	// against. The build configuration is part of it - a Development and a Shipping
 	// build do not share a binary interface.
-	string %MinEngineVersion{"0.7.0"}
-	string %MaxEngineVersion{"0.7.0"}
-	string %AbiTag{"win64-msvc19-0.7.0-dev"}
+	string %MinEngineVersion{"0.8.0"}
+	string %MaxEngineVersion{"0.8.0"}
+	string %AbiTag{"win64-msvc19-0.8.0-dev"}
 
 	// ---- presentation ---------------------------------------------------------
 	// The artwork is the OpenXR mark, which already shipped in the engine under
