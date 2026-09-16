@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net.Http;
 using PlasmaBuild.Core.Configuration;
 using PlasmaBuild.Core.Rules;
@@ -107,9 +108,12 @@ public class OpenXRPluginModule : ModuleRules
         PlasmaPackageSdk.ConfigurePackageModule(this, context, "Source/OpenXRPlugin", "OpenXRPluginPCH.h",
             "BUILDSYSTEM_BUILDING_OPENXRPLUGIN_LIB");
 
-        // Vulkan headers stay in the engine - the renderer needs them - so they are read out of
-        // the SDK rather than vendored here.
+        // Vulkan and Direct3D 12 headers stay in the engine - the renderers need them - so they are read
+        // out of the SDK rather than vendored here. The session binds to whichever renderer is active.
         PublicIncludePaths.Add(Path.Combine(PlasmaPackageSdk.Root, "Code", "ThirdParty", "Vulkan-Headers", "include"));
+        PrivateLibraries.Add(Path.Combine(PlasmaPackageSdk.SdkBinaryDirectory(context), "plRendererVulkan.lib"));
+        PublicIncludePaths.Add(FindAgilitySdkInclude());
+        PrivateLibraries.Add(Path.Combine(PlasmaPackageSdk.SdkBinaryDirectory(context), "plRendererDX12.lib"));
 
         PublicIncludePaths.Add(Path.Combine(openXrPath, "include"));
         PublicLibraries.Add(Path.Combine(openXrPath, "native", "x64", "lib", "openxr_loader.lib"));
@@ -118,6 +122,29 @@ public class OpenXRPluginModule : ModuleRules
         // The OpenXR loader ships with the package: it is Apache-2.0, and the plugin cannot load
         // without it.
         StageLoader(context, openXrPath);
+    }
+
+    /// \brief The Agility SDK include directory the engine's RendererDX12 headers were built against.
+    ///
+    /// RendererDX12 uses interfaces (ID3D12Device10, ID3D12GraphicsCommandList7) that the Windows SDK copy of
+    /// d3d12.h may lack, so the SDK's Agility headers must come first. The engine build fetches them.
+    private static string FindAgilitySdkInclude()
+    {
+        var thirdParty = Path.Combine(PlasmaPackageSdk.Root, "Intermediate", "PlasmaBuild", "ThirdParty");
+        if (Directory.Exists(thirdParty))
+        {
+            foreach (var dir in Directory.GetDirectories(thirdParty, "AgilitySDK-*").OrderByDescending(d => d, StringComparer.OrdinalIgnoreCase))
+            {
+                var include = Path.Combine(dir, "build", "native", "include");
+                if (File.Exists(Path.Combine(include, "d3d12.h")))
+                {
+                    return include;
+                }
+            }
+        }
+
+        throw new DirectoryNotFoundException(
+            $"No Agility SDK headers under '{thirdParty}'. Build the engine's RendererDX12 once so it fetches them.");
     }
 
     /// rief Copies openxr_loader.dll and its licence beside the plugin.

@@ -7,6 +7,7 @@
 class plOpenXR;
 
 PL_DEFINE_AS_POD_TYPE(XrSwapchainImageVulkanKHR);
+PL_DEFINE_AS_POD_TYPE(XrSwapchainImageD3D12KHR);
 
 class PL_OPENXRPLUGIN_DLL plGALOpenXRSwapChain : public plGALXRSwapChain
 {
@@ -59,6 +60,8 @@ private:
 
   plHybridArray<XrSwapchainImageVulkanKHR, 3> m_ColorSwapChainImagesVulkan;
   plHybridArray<XrSwapchainImageVulkanKHR, 3> m_DepthSwapChainImagesVulkan;
+  plHybridArray<XrSwapchainImageD3D12KHR, 3> m_ColorSwapChainImagesD3D12;
+  plHybridArray<XrSwapchainImageD3D12KHR, 3> m_DepthSwapChainImagesD3D12;
   plHybridArray<plGALTextureHandle, 3> m_ColorRTs;
   plHybridArray<plGALTextureHandle, 3> m_DepthRTs;
 

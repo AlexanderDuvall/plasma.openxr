@@ -1,7 +1,8 @@
 # plasma.openxr
 
 Virtual and mixed reality for PlasmaEngine through [OpenXR](https://www.khronos.org/openxr/),
-rendering via Vulkan. Moved out of the engine tree to be built and distributed as a package.
+rendering via Direct3D 12 or Vulkan - the session binds to whichever renderer the engine runs. Moved
+out of the engine tree to be built and distributed as a package.
 
 Published as [`plasma.openxr`](https://plasmaengine.github.io/PlasmaPackages/index.plPackageIndex) in
 the Plasma package registry.
@@ -29,9 +30,10 @@ as the active runtime on the machine.
 
 ## Dependencies
 
-None resolvable through the registry. It binds to GameEngine and to the Vulkan headers, both part of
-the engine rather than packages, so the Vulkan headers are read out of the SDK rather than vendored
-here.
+None resolvable through the registry. It binds to GameEngine, RendererVulkan and RendererDX12, all
+part of the engine rather than packages, so the Vulkan headers and the Agility SDK's D3D12 headers are
+read out of the SDK rather than vendored here. The Agility headers exist only once the SDK's
+RendererDX12 has been built.
 
 ## Building
 

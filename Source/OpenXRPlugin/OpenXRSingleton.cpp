@@ -21,6 +21,7 @@
 #include <GameEngine/XR/StageSpaceComponent.h>
 #include <GameEngine/XR/XRWindow.h>
 
+#include <RendererDX12/Device/DeviceDX12.h>
 #include <RendererVulkan/Device/DeviceVulkan.h>
 
 #include <vector>
@@ -168,8 +169,21 @@ XrResult plOpenXR::SelectExtensions(plHybridArray<const char*, 6>& extensions)
     enableFlag = false;
     return XR_ERROR_EXTENSION_NOT_PRESENT;
   };
+  // The graphics binding extension must match the renderer. The instance lives for the whole process, so this choice does too.
+  const plStringView sRenderer = plGALDevice::HasDefaultDevice() ? plGALDevice::GetDefaultDevice()->GetRenderer() : plGameApplication::GetActiveRenderer();
+  m_GraphicsApi = sRenderer.IsEqual_NoCase("DX12") ? GraphicsApi::D3D12 : GraphicsApi::Vulkan;
+
+  if (m_GraphicsApi == GraphicsApi::D3D12)
+  {
+    if (AddExtIfSupported(XR_KHR_D3D12_ENABLE_EXTENSION_NAME, m_Extensions.m_bD3D12) != XR_SUCCESS)
+    {
+      plLog::Error("OpenXR: The active runtime does not support XR_KHR_D3D12_enable. Run with '-renderer Vulkan' to use it.");
+      return XR_ERROR_EXTENSION_NOT_PRESENT;
+    }
+    plLog::Info("OpenXR: Using XR_KHR_D3D12_enable");
+  }
   // Prefer XR_KHR_vulkan_enable2 for better GPU synchronization, fall back to vulkan_enable
-  if (AddExtIfSupported(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME, m_Extensions.m_bVulkan2) != XR_SUCCESS)
+  else if (AddExtIfSupported(XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME, m_Extensions.m_bVulkan2) != XR_SUCCESS)
   {
     // Fall back to vulkan_enable (required so check that it was added)
     XR_SUCCEED_OR_RETURN_LOG(AddExtIfSupported(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME, m_Extensions.m_bVulkan));
@@ -336,6 +350,11 @@ plResult plOpenXR::Initialize()
   PL_GET_INSTANCE_PROC_ADDR(xrGetVulkanDeviceExtensionsKHR);
   PL_GET_INSTANCE_PROC_ADDR(xrGetVulkanGraphicsDeviceKHR);
   PL_GET_INSTANCE_PROC_ADDR(xrGetVulkanGraphicsRequirementsKHR);
+
+  if (m_Extensions.m_bD3D12)
+  {
+    PL_GET_INSTANCE_PROC_ADDR(xrGetD3D12GraphicsRequirementsKHR);
+  }
 
   // Load vulkan_enable2 function pointers if the extension is available
   if (m_Extensions.m_bVulkan2)
@@ -637,7 +656,14 @@ XrResult plOpenXR::InitSession()
 
   XrSessionCreateInfo sessionCreateInfo{XR_TYPE_SESSION_CREATE_INFO};
   sessionCreateInfo.systemId = m_SystemId;
-  sessionCreateInfo.next = &m_XrGraphicsBindingVulkan;
+  if (m_GraphicsApi == GraphicsApi::D3D12)
+  {
+    sessionCreateInfo.next = &m_XrGraphicsBindingD3D12;
+  }
+  else
+  {
+    sessionCreateInfo.next = &m_XrGraphicsBindingVulkan;
+  }
 
   XR_SUCCEED_OR_CLEANUP_LOG(xrCreateSession(m_pInstance, &sessionCreateInfo, &m_pSession), DeinitSession);
 
@@ -735,6 +761,42 @@ void plOpenXR::DeinitSession()
 
 XrResult plOpenXR::InitGraphicsPlugin()
 {
+  // The binding extension was fixed at instance creation; a renderer that differs from it cannot bind a session.
+  const plStringView sRenderer = plGALDevice::GetDefaultDevice()->GetRenderer();
+  const GraphicsApi deviceApi = sRenderer.IsEqual_NoCase("DX12") ? GraphicsApi::D3D12 : GraphicsApi::Vulkan;
+  if (deviceApi != m_GraphicsApi)
+  {
+    plLog::Error("OpenXR: The instance was created for {} but the renderer is '{}'.", m_GraphicsApi == GraphicsApi::D3D12 ? "D3D12" : "Vulkan", sRenderer);
+    return XR_ERROR_GRAPHICS_DEVICE_INVALID;
+  }
+
+  return m_GraphicsApi == GraphicsApi::D3D12 ? InitGraphicsPluginD3D12() : InitGraphicsPluginVulkan();
+}
+
+XrResult plOpenXR::InitGraphicsPluginD3D12()
+{
+  PL_ASSERT_DEV(m_XrGraphicsBindingD3D12.device == nullptr, "");
+
+  plGALDeviceDX12* pDX12Device = static_cast<plGALDeviceDX12*>(plGALDevice::GetDefaultDevice());
+
+  // Required before xrCreateSession. Names the adapter the headset is connected to.
+  XrGraphicsRequirementsD3D12KHR graphicsRequirements{XR_TYPE_GRAPHICS_REQUIREMENTS_D3D12_KHR};
+  XR_SUCCEED_OR_CLEANUP_LOG(m_Extensions.pfn_xrGetD3D12GraphicsRequirementsKHR(m_pInstance, m_SystemId, &graphicsRequirements), DeinitGraphicsPlugin);
+
+  const LUID& adapterLuid = pDX12Device->GetAdapterDesc().AdapterLuid;
+  if (adapterLuid.LowPart != graphicsRequirements.adapterLuid.LowPart || adapterLuid.HighPart != graphicsRequirements.adapterLuid.HighPart)
+  {
+    plLog::Warning("OpenXR: The headset is connected to a different adapter than the D3D12 device in use ('{}'). The runtime may refuse the session.", pDX12Device->GetCapabilities().m_sAdapterName);
+  }
+
+  m_XrGraphicsBindingD3D12.device = pDX12Device->GetD3DDevice();
+  m_XrGraphicsBindingD3D12.queue = pDX12Device->GetGraphicsQueue().m_pQueue;
+
+  return XrResult::XR_SUCCESS;
+}
+
+XrResult plOpenXR::InitGraphicsPluginVulkan()
+{
   PL_ASSERT_DEV(m_XrGraphicsBindingVulkan.device == VK_NULL_HANDLE, "");
   
   plGALDevice* pDevice = plGALDevice::GetDefaultDevice();
@@ -782,6 +844,8 @@ XrResult plOpenXR::InitGraphicsPlugin()
 void plOpenXR::DeinitGraphicsPlugin()
 {
   m_XrGraphicsBindingVulkan.device = VK_NULL_HANDLE;
+  m_XrGraphicsBindingD3D12.device = nullptr;
+  m_XrGraphicsBindingD3D12.queue = nullptr;
 }
 
 XrResult plOpenXR::InitDebugMessenger()
@@ -1495,50 +1559,53 @@ plMat4 plOpenXR::ConvertPoseToMatrix(const XrPosef& pose)
   return m;
 }
 
-plGALResourceFormat::Enum plOpenXR::ConvertTextureFormat(int64_t format)
+plGALResourceFormat::Enum plOpenXR::ConvertTextureFormat(int64_t format, GraphicsApi api)
 {
-  // Check if it's a Vulkan format (values >= VK_FORMAT_BEGIN_RANGE)
-  if (format >= 0 && format < 1000)
+  // Swap chain formats are in the session graphics API's own enumeration, and the VkFormat and DXGI_FORMAT ranges overlap.
+  if (api == GraphicsApi::D3D12)
   {
-    // Vulkan format
-    VkFormat vkFormat = static_cast<VkFormat>(format);
-    switch (vkFormat)
+    switch (static_cast<DXGI_FORMAT>(format))
     {
-      case VK_FORMAT_R8G8B8A8_SRGB:
+      case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
         return plGALResourceFormat::RGBAUByteNormalizedsRGB;
-      case VK_FORMAT_B8G8R8A8_SRGB:
+      case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
         return plGALResourceFormat::BGRAUByteNormalizedsRGB;
-      case VK_FORMAT_R8G8B8A8_UNORM:
+      case DXGI_FORMAT_R8G8B8A8_UNORM:
         return plGALResourceFormat::RGBAUByteNormalized;
-      case VK_FORMAT_B8G8R8A8_UNORM:
+      case DXGI_FORMAT_B8G8R8A8_UNORM:
         return plGALResourceFormat::BGRAUByteNormalized;
-      case VK_FORMAT_D32_SFLOAT:
+      case DXGI_FORMAT_D32_FLOAT:
         return plGALResourceFormat::DFloat;
-      case VK_FORMAT_D16_UNORM:
+      case DXGI_FORMAT_D16_UNORM:
         return plGALResourceFormat::D16;
-      case VK_FORMAT_D24_UNORM_S8_UINT:
+      case DXGI_FORMAT_D24_UNORM_S8_UINT:
         return plGALResourceFormat::D24S8;
-      case VK_FORMAT_D32_SFLOAT_S8_UINT:
-        return plGALResourceFormat::DFloat; // Closest match
       default:
-        plLog::Warning("Unknown Vulkan format {0}, defaulting to RGBAUByteNormalized", (int)format);
+        plLog::Warning("Unknown DXGI format {0}, defaulting to RGBAUByteNormalized", (int)format);
         return plGALResourceFormat::RGBAUByteNormalized;
     }
   }
-  else
+
+  switch (static_cast<VkFormat>(format))
   {
-    // Legacy DXGI format support (for backward compatibility)
-    switch (format)
-    {
-      case 41: // DXGI_FORMAT_D32_FLOAT
-        return plGALResourceFormat::DFloat;
-      case 55: // DXGI_FORMAT_D16_UNORM
-        return plGALResourceFormat::D16;
-      case 45: // DXGI_FORMAT_D24_UNORM_S8_UINT
-        return plGALResourceFormat::D24S8;
-      default:
-        plLog::Warning("Unknown texture format {0}, defaulting to RGBAUByteNormalized", (int)format);
-        return plGALResourceFormat::RGBAUByteNormalized;
-    }
+    case VK_FORMAT_R8G8B8A8_SRGB:
+      return plGALResourceFormat::RGBAUByteNormalizedsRGB;
+    case VK_FORMAT_B8G8R8A8_SRGB:
+      return plGALResourceFormat::BGRAUByteNormalizedsRGB;
+    case VK_FORMAT_R8G8B8A8_UNORM:
+      return plGALResourceFormat::RGBAUByteNormalized;
+    case VK_FORMAT_B8G8R8A8_UNORM:
+      return plGALResourceFormat::BGRAUByteNormalized;
+    case VK_FORMAT_D32_SFLOAT:
+      return plGALResourceFormat::DFloat;
+    case VK_FORMAT_D16_UNORM:
+      return plGALResourceFormat::D16;
+    case VK_FORMAT_D24_UNORM_S8_UINT:
+      return plGALResourceFormat::D24S8;
+    case VK_FORMAT_D32_SFLOAT_S8_UINT:
+      return plGALResourceFormat::DFloat; // Closest match
+    default:
+      plLog::Warning("Unknown Vulkan format {0}, defaulting to RGBAUByteNormalized", (int)format);
+      return plGALResourceFormat::RGBAUByteNormalized;
   }
 }

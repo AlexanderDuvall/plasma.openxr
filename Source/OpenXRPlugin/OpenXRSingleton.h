@@ -36,6 +36,14 @@ public:
   XrViewConfigurationType GetViewType() const { return m_PrimaryViewConfigurationType; }
   bool GetDepthComposition() const;
 
+  /// \brief The graphics API the session binds to. Chosen from the active renderer when the instance is created.
+  enum class GraphicsApi : plUInt8
+  {
+    Vulkan,
+    D3D12,
+  };
+  GraphicsApi GetGraphicsApi() const { return m_GraphicsApi; }
+
   virtual bool IsHmdPresent() const override;
 
   virtual plResult Initialize() override;
@@ -85,6 +93,8 @@ private:
   /// \brief Tears the session down after the runtime asked us to stop. Main thread only.
   void ShutdownSession();
   XrResult InitGraphicsPlugin();
+  XrResult InitGraphicsPluginVulkan();
+  XrResult InitGraphicsPluginD3D12();
   void DeinitGraphicsPlugin();
   XrResult InitDebugMessenger();
   void DeinitInitDebugMessenger();
@@ -109,7 +119,7 @@ public:
   static plQuat ConvertOrientation(const XrQuaternionf& q);
   static plVec3 ConvertPosition(const XrVector3f& pos);
   static plMat4 ConvertPoseToMatrix(const XrPosef& pose);
-  static plGALResourceFormat::Enum ConvertTextureFormat(int64_t format);
+  static plGALResourceFormat::Enum ConvertTextureFormat(int64_t format, GraphicsApi api);
 
 private:
   friend class plOpenXRInputDevice;
@@ -137,6 +147,10 @@ private:
     PFN_xrCreateVulkanDeviceKHR pfn_xrCreateVulkanDeviceKHR;
     PFN_xrGetVulkanGraphicsDevice2KHR pfn_xrGetVulkanGraphicsDevice2KHR;
     PFN_xrGetVulkanGraphicsRequirements2KHR pfn_xrGetVulkanGraphicsRequirements2KHR;
+
+    // XR_KHR_D3D12_enable extension
+    bool m_bD3D12 = false;
+    PFN_xrGetD3D12GraphicsRequirementsKHR pfn_xrGetD3D12GraphicsRequirementsKHR = nullptr;
 
     bool m_bDepthComposition = false;
 
@@ -190,6 +204,8 @@ private:
   // the instance and only the destructor releases it.
   XrInstance m_pInstance = XR_NULL_HANDLE;
   Extensions m_Extensions;
+  // Fixed with the instance, because the graphics binding extension is enabled by xrCreateInstance.
+  GraphicsApi m_GraphicsApi = GraphicsApi::Vulkan;
 #ifdef BUILDSYSTEM_ENABLE_OPENXR_REMOTING_SUPPORT
   plUniquePtr<class plOpenXRRemoting> m_pRemoting;
 #endif
@@ -209,6 +225,7 @@ private:
   // Graphics plugin
   XrEnvironmentBlendMode m_BlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
   XrGraphicsBindingVulkanKHR m_XrGraphicsBindingVulkan{XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR};
+  XrGraphicsBindingD3D12KHR m_XrGraphicsBindingD3D12{XR_TYPE_GRAPHICS_BINDING_D3D12_KHR};
   XrFormFactor m_FormFactor{XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY};
   XrViewConfigurationType m_PrimaryViewConfigurationType{XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO};
 

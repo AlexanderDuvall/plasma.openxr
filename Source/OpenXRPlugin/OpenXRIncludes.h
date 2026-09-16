@@ -11,6 +11,8 @@
 #include <vulkan/vulkan.h>
 #define XR_USE_GRAPHICS_API_VULKAN
 #if PL_ENABLED(PL_PLATFORM_WINDOWS)
+#  include <d3d12.h>
+#  define XR_USE_GRAPHICS_API_D3D12
 #  define XR_USE_PLATFORM_WIN32
 #endif
 #include <openxr/openxr.h>

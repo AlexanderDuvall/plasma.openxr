@@ -125,23 +125,19 @@ XrResult plGALOpenXRSwapChain::SelectSwapchainFormat(int64_t& colorFormat, int64
   std::vector<int64_t> swapchainFormats(swapchainFormatCount);
   XR_SUCCEED_OR_CLEANUP_LOG(xrEnumerateSwapchainFormats(m_pSession, (uint32_t)swapchainFormats.size(), &swapchainFormatCount, swapchainFormats.data()), voidFunction);
 
-  // List of supported color swapchain formats, in priority order.
-  constexpr VkFormat SupportedColorSwapchainFormats[] = {
-    VK_FORMAT_B8G8R8A8_SRGB,
-    VK_FORMAT_R8G8B8A8_SRGB,
-    VK_FORMAT_B8G8R8A8_UNORM,
-    VK_FORMAT_R8G8B8A8_UNORM,
-  };
+  // Supported swap chain formats in priority order, in the session graphics API's own enumeration.
+  static constexpr int64_t s_VulkanColorFormats[] = {VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM};
+  static constexpr int64_t s_VulkanDepthFormats[] = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D16_UNORM, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT};
+  static constexpr int64_t s_D3D12ColorFormats[] = {DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM};
+  // No DXGI_FORMAT_D32_FLOAT_S8X24_UINT: GAL has no matching format, and a D32_FLOAT view of that resource is invalid.
+  static constexpr int64_t s_D3D12DepthFormats[] = {DXGI_FORMAT_D32_FLOAT, DXGI_FORMAT_D16_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT};
 
-  constexpr VkFormat SupportedDepthSwapchainFormats[] = {
-    VK_FORMAT_D32_SFLOAT,
-    VK_FORMAT_D16_UNORM,
-    VK_FORMAT_D24_UNORM_S8_UINT,
-    VK_FORMAT_D32_SFLOAT_S8_UINT,
-  };
+  const bool bD3D12 = pOpenXR->GetGraphicsApi() == plOpenXR::GraphicsApi::D3D12;
+  plArrayPtr<const int64_t> supportedColorFormats = bD3D12 ? plMakeArrayPtr(s_D3D12ColorFormats) : plMakeArrayPtr(s_VulkanColorFormats);
+  plArrayPtr<const int64_t> supportedDepthFormats = bD3D12 ? plMakeArrayPtr(s_D3D12DepthFormats) : plMakeArrayPtr(s_VulkanDepthFormats);
 
-  auto swapchainFormatIt = std::find_first_of(std::begin(SupportedColorSwapchainFormats), std::end(SupportedColorSwapchainFormats), swapchainFormats.begin(), swapchainFormats.end());
-  if (swapchainFormatIt == std::end(SupportedColorSwapchainFormats))
+  auto swapchainFormatIt = std::find_first_of(supportedColorFormats.GetPtr(), supportedColorFormats.GetEndPtr(), swapchainFormats.begin(), swapchainFormats.end());
+  if (swapchainFormatIt == supportedColorFormats.GetEndPtr())
   {
     return XrResult::XR_ERROR_INITIALIZATION_FAILED;
   }
@@ -149,8 +145,8 @@ XrResult plGALOpenXRSwapChain::SelectSwapchainFormat(int64_t& colorFormat, int64
 
   if (pOpenXR->GetDepthComposition())
   {
-    auto depthSwapchainFormatIt = std::find_first_of(std::begin(SupportedDepthSwapchainFormats), std::end(SupportedDepthSwapchainFormats), swapchainFormats.begin(), swapchainFormats.end());
-    if (depthSwapchainFormatIt == std::end(SupportedDepthSwapchainFormats))
+    auto depthSwapchainFormatIt = std::find_first_of(supportedDepthFormats.GetPtr(), supportedDepthFormats.GetEndPtr(), swapchainFormats.begin(), swapchainFormats.end());
+    if (depthSwapchainFormatIt == supportedDepthFormats.GetEndPtr())
     {
       return XrResult::XR_ERROR_INITIALIZATION_FAILED;
     }
@@ -161,15 +157,18 @@ XrResult plGALOpenXRSwapChain::SelectSwapchainFormat(int64_t& colorFormat, int64
 
 XrResult plGALOpenXRSwapChain::CreateSwapchainImages(Swapchain& swapchain, SwapchainType type)
 {
-  if (type == SwapchainType::Color)
+  const plOpenXR::GraphicsApi api = static_cast<plOpenXR*>(m_pXrInterface)->GetGraphicsApi();
+  plHybridArray<XrSwapchainImageVulkanKHR, 3>& imagesVulkan = type == SwapchainType::Color ? m_ColorSwapChainImagesVulkan : m_DepthSwapChainImagesVulkan;
+  plHybridArray<XrSwapchainImageD3D12KHR, 3>& imagesD3D12 = type == SwapchainType::Color ? m_ColorSwapChainImagesD3D12 : m_DepthSwapChainImagesD3D12;
+  if (api == plOpenXR::GraphicsApi::D3D12)
   {
-    m_ColorSwapChainImagesVulkan.SetCount(swapchain.imageCount, {XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR});
-    swapchain.images = reinterpret_cast<XrSwapchainImageBaseHeader*>(m_ColorSwapChainImagesVulkan.GetData());
+    imagesD3D12.SetCount(swapchain.imageCount, {XR_TYPE_SWAPCHAIN_IMAGE_D3D12_KHR});
+    swapchain.images = reinterpret_cast<XrSwapchainImageBaseHeader*>(imagesD3D12.GetData());
   }
   else
   {
-    m_DepthSwapChainImagesVulkan.SetCount(swapchain.imageCount, {XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR});
-    swapchain.images = reinterpret_cast<XrSwapchainImageBaseHeader*>(m_DepthSwapChainImagesVulkan.GetData());
+    imagesVulkan.SetCount(swapchain.imageCount, {XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR});
+    swapchain.images = reinterpret_cast<XrSwapchainImageBaseHeader*>(imagesVulkan.GetData());
   }
   XR_SUCCEED_OR_CLEANUP_LOG(xrEnumerateSwapchainImages(swapchain.handle, swapchain.imageCount, &swapchain.imageCount, swapchain.images), voidFunction);
 
@@ -177,23 +176,15 @@ XrResult plGALOpenXRSwapChain::CreateSwapchainImages(Swapchain& swapchain, Swapc
 
   for (plUInt32 i = 0; i < swapchain.imageCount; i++)
   {
-    VkImage vkImage = VK_NULL_HANDLE;
-    if (type == SwapchainType::Color)
-    {
-      vkImage = m_ColorSwapChainImagesVulkan[i].image;
-    }
-    else
-    {
-      vkImage = m_DepthSwapChainImagesVulkan[i].image;
-    }
+    // The runtime-owned VkImage or ID3D12Resource, wrapped without taking ownership.
+    void* pNativeImage = api == plOpenXR::GraphicsApi::D3D12 ? static_cast<void*>(imagesD3D12[i].texture) : (void*)(plUInt64)imagesVulkan[i].image;
 
     plGALTextureCreationDescription textureDesc;
     // Determine dimensions - for stereo the array size is 2
     plUInt32 width = m_PrimaryConfigView.recommendedImageRectWidth;
     plUInt32 height = m_PrimaryConfigView.recommendedImageRectHeight;
     
-    // Convert Vulkan format to GAL format
-    plGALResourceFormat::Enum galFormat = plOpenXR::ConvertTextureFormat(swapchain.format);
+    plGALResourceFormat::Enum galFormat = plOpenXR::ConvertTextureFormat(swapchain.format, api);
     
     textureDesc.SetAsRenderTarget(width, height, galFormat, m_MsaaCount);
     textureDesc.m_uiArraySize = 2; // Stereo - 2 eyes
@@ -201,7 +192,7 @@ XrResult plGALOpenXRSwapChain::CreateSwapchainImages(Swapchain& swapchain, Swapc
     {
       textureDesc.m_Type = plGALTextureType::Texture2DArray;
     }
-    textureDesc.m_pExisitingNativeObject = (void*)(plUInt64)vkImage;
+    textureDesc.m_pExisitingNativeObject = pNativeImage;
     
     if (type == SwapchainType::Color)
     {
@@ -345,4 +336,6 @@ void plGALOpenXRSwapChain::DeinitSwapChain()
 
   m_ColorSwapChainImagesVulkan.Clear();
   m_DepthSwapChainImagesVulkan.Clear();
+  m_ColorSwapChainImagesD3D12.Clear();
+  m_DepthSwapChainImagesD3D12.Clear();
 }

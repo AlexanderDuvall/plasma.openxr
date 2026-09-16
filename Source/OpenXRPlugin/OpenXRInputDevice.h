@@ -91,10 +91,16 @@ private:
   plOpenXR* m_pOpenXR = nullptr;
   XrInstance m_pInstance = XR_NULL_HANDLE;
   XrSession m_pSession = XR_NULL_HANDLE;
-  //set to 4 so we can add vive tracker left shoulder. og 3
-  plXRDeviceState m_DeviceState[4]; // Hard-coded for now
-  plString m_sActiveProfile[4];
-  plBitflags<plXRDeviceFeatures> m_SupportedFeatures[3];
+public:
+  // HMD, left hand, right hand, left-shoulder vive tracker. Every per-device array and every bounds check
+  // derives from this - the accessors used to hard-code "< 3", which asserted (and read out of bounds in
+  // release) the moment the shoulder tracker connected.
+  static constexpr plInt8 s_iMaxDevices = 4;
+
+private:
+  plXRDeviceState m_DeviceState[s_iMaxDevices];
+  plString m_sActiveProfile[s_iMaxDevices];
+  plBitflags<plXRDeviceFeatures> m_SupportedFeatures[s_iMaxDevices];
   const plInt8 m_iLeftControllerDeviceID = 1;
   const plInt8 m_iRightControllerDeviceID = 2;
   const plInt8 m_iLeftShoulderDeviceId = 3;
@@ -142,8 +148,8 @@ private:
   // Double-buffered input snapshot for lock-free reading from main thread
   struct InputSnapshot
   {
-    plXRDeviceState m_DeviceState[4];
-    plBitflags<plXRDeviceFeatures> m_SupportedFeatures[3];
+    plXRDeviceState m_DeviceState[s_iMaxDevices];
+    plBitflags<plXRDeviceFeatures> m_SupportedFeatures[s_iMaxDevices];
     plHashTable<plString, float> m_InputSlotValues;
   };
 

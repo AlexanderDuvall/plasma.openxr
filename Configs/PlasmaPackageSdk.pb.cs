@@ -82,8 +82,8 @@ public static class PlasmaPackageSdk
 
         rules.PublicDefinitions.Add("BUILDSYSTEM_COMPILE_ENGINE_AS_DLL");
         rules.PublicDefinitions.Add("BUILDSYSTEM_SDKVERSION_MAJOR=0");
-        rules.PublicDefinitions.Add("BUILDSYSTEM_SDKVERSION_MINOR=8");
-        rules.PublicDefinitions.Add("BUILDSYSTEM_SDKVERSION_PATCH=0");
+        rules.PublicDefinitions.Add("BUILDSYSTEM_SDKVERSION_MINOR=9");
+        rules.PublicDefinitions.Add("BUILDSYSTEM_SDKVERSION_PATCH=2");
         rules.PublicDefinitions.Add("UNICODE");
         rules.PublicDefinitions.Add("_UNICODE");
 

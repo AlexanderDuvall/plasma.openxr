@@ -52,8 +52,9 @@ PL_END_DYNAMIC_REFLECTED_TYPE;
 void plOpenXRInputDevice::GetDeviceList(plHybridArray<plXRDeviceID, 64>& out_devices) const
 {
   PL_ASSERT_DEV(m_pOpenXR->IsInitialized(), "Need to call 'Initialize' first.");
+  // The HMD (0) is always present; start the scan at 1 so it is not listed twice.
   out_devices.PushBack(0);
-  for (plXRDeviceID i = 0; i < 4; i++)
+  for (plXRDeviceID i = 1; i < s_iMaxDevices; i++)
   {
     if (m_DeviceState[i].m_bDeviceIsConnected)
     {
@@ -95,7 +96,7 @@ const plXRDeviceState& plOpenXRInputDevice::GetDeviceState(plXRDeviceID deviceID
 {
 
   PL_ASSERT_DEV(m_pOpenXR->IsInitialized(), "Need to call 'Initialize' first.");
-  PL_ASSERT_DEV(deviceID < 3 && deviceID >= 0, "Invalid device ID.");
+  PL_ASSERT_DEV(deviceID < s_iMaxDevices && deviceID >= 0, "Invalid device ID.");
   PL_ASSERT_DEV(m_DeviceState[deviceID].m_bDeviceIsConnected, "Invalid device ID.");
   return m_DeviceState[deviceID];
 }
@@ -103,7 +104,7 @@ const plXRDeviceState& plOpenXRInputDevice::GetDeviceState(plXRDeviceID deviceID
 plString plOpenXRInputDevice::GetDeviceName(plXRDeviceID deviceID) const
 {
   PL_ASSERT_DEV(m_pOpenXR->IsInitialized(), "Need to call 'Initialize' first.");
-  PL_ASSERT_DEV(deviceID < 3 && deviceID >= 0, "Invalid device ID.");
+  PL_ASSERT_DEV(deviceID < s_iMaxDevices && deviceID >= 0, "Invalid device ID.");
   PL_ASSERT_DEV(m_DeviceState[deviceID].m_bDeviceIsConnected, "Invalid device ID.");
   return m_sActiveProfile[deviceID];
 }
@@ -111,7 +112,7 @@ plString plOpenXRInputDevice::GetDeviceName(plXRDeviceID deviceID) const
 plBitflags<plXRDeviceFeatures> plOpenXRInputDevice::GetDeviceFeatures(plXRDeviceID deviceID) const
 {
   PL_ASSERT_DEV(m_pOpenXR->IsInitialized(), "Need to call 'Initialize' first.");
-  PL_ASSERT_DEV(deviceID < 3 && deviceID >= 0, "Invalid device ID.");
+  PL_ASSERT_DEV(deviceID < s_iMaxDevices && deviceID >= 0, "Invalid device ID.");
   PL_ASSERT_DEV(m_DeviceState[deviceID].m_bDeviceIsConnected, "Invalid device ID.");
   return m_SupportedFeatures[deviceID];
 }
@@ -705,7 +706,7 @@ void plOpenXRInputDevice::DestroyActions()
     }
   }
 
-  for (plUInt32 i = 0; i < 4; i++)
+  for (plUInt32 i = 0; i < s_iMaxDevices; i++)
   {
     m_sActiveProfile[i].Clear();
     m_SupportedFeatures[i].Clear();
@@ -935,7 +936,7 @@ void plOpenXRInputDevice::CopySnapshotToMainThread()
   const InputSnapshot& snapshot = m_InputSnapshots[readIdx];
 
   // Copy device states
-  for (plUInt32 i = 0; i < 4; ++i)
+  for (plUInt32 i = 0; i < s_iMaxDevices; ++i)
   {
     m_DeviceState[i] = snapshot.m_DeviceState[i];
     m_SupportedFeatures[i] = snapshot.m_SupportedFeatures[i];
@@ -1041,7 +1042,7 @@ void plOpenXRInputDevice::UpdateActionsOnInputThread()
     return;
 
   const XrSpace baseSpace = m_pOpenXR->GetBaseSpace();
-  UpdateLeftShoulderTracking(snapshot.m_DeviceState[3]);
+  UpdateLeftShoulderTracking(snapshot.m_DeviceState[m_iLeftShoulderDeviceId]);
 
   for (plUInt32 uiSide : {0, 1})
   {

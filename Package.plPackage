@@ -12,7 +12,7 @@ PackageInfo
 	// Version starts at 1.0.0 rather than inheriting an engine version: this package
 	// versions on its own changes from now on, not on the engine's.
 	string %Id{"plasma.openxr"}
-	string %Version{"1.1.0"}
+	string %Version{"1.1.5"}
 	string %Publisher{"PlasmaTechnology"}
 	string %License{"MIT"}
 	string %Homepage{"https://plasmagameengine.com"}
@@ -21,9 +21,9 @@ PackageInfo
 	// Must equal plSdkVersion::GetAbiTag() of the engine these binaries were built
 	// against. The build configuration is part of it - a Development and a Shipping
 	// build do not share a binary interface.
-	string %MinEngineVersion{"0.8.0"}
-	string %MaxEngineVersion{"0.8.0"}
-	string %AbiTag{"win64-msvc19-0.8.0-dev"}
+	string %MinEngineVersion{"0.9.2"}
+	string %MaxEngineVersion{"0.9.2"}
+	string %AbiTag{"win64-msvc19-0.9.2-abi2-dev"}
 
 	// ---- presentation ---------------------------------------------------------
 	// The artwork is the OpenXR mark, which already shipped in the engine under
@@ -31,7 +31,7 @@ PackageInfo
 	// Khronos trademark, used here to identify an OpenXR integration.
 	string %DisplayName{"OpenXR"}
 	string %Category{"XR"}
-	string %Description{"Virtual and mixed reality through OpenXR, rendering via Vulkan.
+	string %Description{"Virtual and mixed reality through OpenXR, rendering via Direct3D 12 or Vulkan, whichever renderer the engine runs.
 
 The OpenXR loader ships with the package. A runtime for the headset - SteamVR, Oculus, Windows Mixed Reality or similar - has to be installed and set as the active OpenXR runtime."}
 	string %Icon{"Branding/OpenXRIcon.png"}
