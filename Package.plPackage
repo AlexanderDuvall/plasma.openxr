@@ -12,7 +12,7 @@ PackageInfo
 	// Version starts at 1.0.0 rather than inheriting an engine version: this package
 	// versions on its own changes from now on, not on the engine's.
 	string %Id{"plasma.openxr"}
-	string %Version{"1.1.7"}
+	string %Version{"1.1.8"}
 	string %Publisher{"PlasmaTechnology"}
 	string %License{"MIT"}
 	string %Homepage{"https://plasmagameengine.com"}
