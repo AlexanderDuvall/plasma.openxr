@@ -16,18 +16,6 @@ public static class PlasmaBuildOpenXR
     {
         disabledReason = string.Empty;
 
-        if (context.Platform != TargetPlatform.Windows)
-        {
-            disabledReason = "OpenXR plugin is currently only supported on Windows desktop.";
-            return false;
-        }
-
-        if (context.Architecture == TargetArchitecture.X86 || context.Architecture == TargetArchitecture.ARM64)
-        {
-            disabledReason = "OpenXR plugin PlasmaBuild support is currently configured for Windows x64 only.";
-            return false;
-        }
-
         return true;
     }
 
