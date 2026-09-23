@@ -27,8 +27,10 @@ public:
 
 private:
   friend class plOpenXR;
-  XrAction shoulderPoseAction;
-  XrSpace shoulderSpace;
+  // Left-shoulder Vive tracker. Only created when XR_HTCX_vive_tracker_interaction is enabled: its subaction path is
+  // not a valid top-level path otherwise, and a failed xrCreateAction would take every other action down with it.
+  XrAction shoulderPoseAction = XR_NULL_HANDLE;
+  XrSpace shoulderSpace = XR_NULL_HANDLE;
 
   struct Bind
   {
@@ -184,8 +186,8 @@ private:
 
   void StartInputThread();
   void StopInputThread();
-  XrSpaceLocation UpdateLeftShoulderTracking(plXRDeviceState& deviceState); // Called by input thread
-  
+  void UpdateLeftShoulderTracking(InputSnapshot& snapshot, XrSpace baseSpace, XrTime time); // Called by input thread
+
   void UpdateActionsOnInputThread();  // Called by input thread
   void CopySnapshotToMainThread();    // Called by main thread in UpdateActions
 };
